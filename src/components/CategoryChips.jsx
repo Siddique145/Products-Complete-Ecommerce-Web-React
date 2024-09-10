@@ -1,18 +1,3 @@
-// function CategoryChips({ category, isChosen, onClick }) {
-//   return (
-//     <div
-//       onClick={onClick}
-//       className={`flex items-center h-10 px-4 rounded-md cursor-pointer border 
-//         ${isChosen ? "bg-purple-500 text-white" : "bg-white text-black"} 
-//         hover:bg-purple-500 hover:text-white transition-colors duration-300`}
-//     >
-//       {category.name}
-//       {category.all}
-//     </div>
-//   );
-// }
-
-// export default CategoryChips;
 import React from 'react';
 
 function CategoryDropdown({ categories, chosenCategory, onCategoryChange }) {

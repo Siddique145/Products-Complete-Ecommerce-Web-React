@@ -1,197 +1,237 @@
 import React, { useState } from "react";
-import { auth } from "../firebase/Firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
+import { auth, firestore, storage, provider } from "../firebase/Firebase";
+import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { setDoc, doc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Swal from "sweetalert2";
+import { Link, useNavigate } from "react-router-dom";
 
-function Signup() {
+function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [profilePic, setProfilePic] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const navigate = useNavigate(); // Initialize useNavigate
-
-  const handleSubmit = async (e) => {
+  const handleEmailPasswordSignup = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
+      setLoading(false);
       return;
     }
 
-    setError("");
-    setLoading(true);
-
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
 
-      // Show success alert
+      // Handle profile picture upload
+      let profilePicUrl = "";
+      if (profilePic) {
+        const picRef = ref(storage, `profilePics/${user.uid}`);
+        await uploadBytes(picRef, profilePic);
+        profilePicUrl = await getDownloadURL(picRef);
+      }
+
+      // Save user data to Firestore
+      await setDoc(doc(firestore, `users/${user.uid}`), {
+        username,
+        email: user.email,
+        profilePic: profilePicUrl,
+      });
+
+      // Save user data to local storage
+      localStorage.setItem(
+        "userInfo",
+        JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          username,
+          profilePic: profilePicUrl,
+        })
+      );
+
       Swal.fire({
         title: "Success!",
-        text: "User registered successfully!",
+        text: `${username} registered successfully!`,
         icon: "success",
         confirmButtonText: "OK",
       }).then(() => {
-        // Redirect after alert
-        navigate("/login");
+        navigate("/main"); // Redirect to the main page
       });
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Get profile picture URL if available
+      const profilePicUrl = user.photoURL || "";
+
+      await setDoc(doc(firestore, `users/${user.uid}`), {
+        username: user.displayName || "",
+        email: user.email,
+        profilePic: profilePicUrl,
+      });
+
+      localStorage.setItem(
+        "userInfo",
+        JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          username: user.displayName || "",
+          profilePic: profilePicUrl,
+        })
+      );
+
+      Swal.fire({
+        title: "Success!",
+        text: `${user.displayName || "User"} registered successfully!`,
+        icon: "success",
+        confirmButtonText: "OK",
+      }).then(() => {
+        navigate("/main"); // Redirect to the main page
+      });
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <form
-        onSubmit={handleSubmit}
-        className="mt-14 max-w-lg mx-auto p-6 bg-white rounded-lg shadow-lg"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-900">
-          Sign Up
-        </h2>
-
-        {error && (
-          <div className="mb-4 p-2 text-red-700 bg-red-100 rounded">
-            {error}
-          </div>
-        )}
-
-        <div className="mb-6">
-          <label
-            htmlFor="floating_email"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Email address
-          </label>
-          <input
-            type="email"
-            id="floating_email"
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            placeholder="example@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="mb-6">
-          <label
-            htmlFor="floating_password"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Password
-          </label>
-          <input
-            type="password"
-            id="floating_password"
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            placeholder="********"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="mb-6">
-          <label
-            htmlFor="floating_repeat_password"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Confirm password
-          </label>
-          <input
-            type="password"
-            id="floating_repeat_password"
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            placeholder="********"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          <div>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold mb-6 text-center">Sign Up</h2>
+        {error && <p className="text-red-500 mb-4">{error}</p>}
+        <form onSubmit={handleEmailPasswordSignup}>
+          <div className="mb-4">
             <label
-              htmlFor="floating_first_name"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700"
             >
-              First name
+              Username
             </label>
             <input
               type="text"
-              id="floating_first_name"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="John"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
-
-          <div>
+          <div className="mb-4">
             <label
-              htmlFor="floating_last_name"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
             >
-              Last name
+              Email
             </label>
             <input
-              type="text"
-              id="floating_last_name"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="Doe"
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
+          <div className="mb-4">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div className="mb-4">
+            <label
+              htmlFor="confirm_password"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              id="confirm_password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div className="mb-4">
+            <label
+              htmlFor="profile_pic"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Profile Picture
+            </label>
+            <input
+              type="file"
+              id="profile_pic"
+              accept="image/*"
+              onChange={(e) => setProfilePic(e.target.files[0])}
+              className="mt-1 block w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {loading ? "Signing Up..." : "Sign Up"}
+          </button>
+        </form>
+        <div className="mt-4 text-center">
+          <button
+            onClick={handleGoogleSignup}
+            className="flex items-center px-4 py-2 border border-black text-black bg-white hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-black-500 font-medium rounded-md text-sm"
+            disabled={loading}
+          >
+            <img
+              className="h-6 mr-2"
+              src="https://img.icons8.com/?size=512&id=17949&format=png"
+              alt="Google icon"
+            />
+            {loading ? "Signing up with Google..." : "Sign up with Google"}
+          </button>
         </div>
-
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          <div>
-            <label
-              htmlFor="floating_phone"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Phone number
-            </label>
-            <input
-              type="tel"
-              id="floating_phone"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="123-456-7890"
-              required
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="floating_company"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Company
-            </label>
-            <input
-              type="text"
-              id="floating_company"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="Google"
-              required
-            />
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          className="w-full px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium rounded-md text-sm"
-          disabled={loading}
-        >
-          {loading ? "Submitting..." : "Submit"}
-        </button>
-        <a href="" className="text-blue-700"><Link to={'/login'}>Already Account Click me!</Link></a>
-      </form>
-
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Already have an account?{" "}
+          <Link to="/login" className="text-indigo-600 hover:text-indigo-700">
+            Login
+          </Link>
+        </p>
+      </div>
       {loading && (
         <div className="loader-container">
           <div className="dot"></div>
@@ -200,55 +240,41 @@ function Signup() {
           <div className="dot"></div>
         </div>
       )}
-
       <style>
         {`
           .loader-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
             display: flex;
-            align-items: center;
             justify-content: center;
-            background-color: rgba(255, 255, 255, 0.8);
-            z-index: 1000;
+            align-items: center;
+            height: 100px;
+            width: 100%;
           }
-          
           .dot {
-            position: relative;
-            width: 20px;
-            height: 20px;
-            margin: 5px;
+            width: 12px;
+            height: 12px;
+            margin: 0 5px;
+            background-color: #333;
             border-radius: 50%;
-            background-color: black;
-            animation: bounce 1.2s infinite ease-in-out;
+            animation: dot-flashing 1.5s infinite linear;
           }
-          
+          .dot:nth-child(1) {
+            animation-delay: -0.3s;
+          }
           .dot:nth-child(2) {
-            animation-delay: -0.4s;
+            animation-delay: -0.15s;
           }
-          
-          .dot:nth-child(3) {
-            animation-delay: -0.8s;
-          }
-          
-          @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% {
-              transform: translateY(0);
+          @keyframes dot-flashing {
+            0%, 100% {
+              opacity: 0;
             }
-            40% {
-              transform: translateY(-30px);
-            }
-            60% {
-              transform: translateY(-15px);
+            50% {
+              opacity: 1;
             }
           }
         `}
       </style>
-    </>
+    </div>
   );
 }
 
-export default Signup;
+export default SignUp;
