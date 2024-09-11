@@ -417,7 +417,7 @@ function Header() {
                       className="w-10 h-10 rounded-full"
                     />
                   )}
-                  <span className="text-white">{userInfo.username}</span>
+                  <span className="text-black">{userInfo.username}</span>
                 </button>
                 {sidebarOpen && (
                   <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg">
