@@ -378,7 +378,7 @@ function Header() {
         </div>
       )}
 
-      <nav className="bg-white dark:bg-indigo-500 fixed w-full z-20 top-0 start-0 border-b border-gray-200 dark:border-gray-600">
+      <nav className="backdrop-blur-sm p-4 bg-white/30 dark:bg-indigo-500 fixed w-full z-20 top-0 start-0 border-b border-gray-200 dark:border-gray-600">
         <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
           <a
             href="/"
@@ -484,7 +484,7 @@ function Header() {
                     `block py-2 px-3 rounded md:p-0 ${
                       isActive
                         ? "text-2xl font-extrabold text-white"
-                        : "text-white hover:font-extrabold"
+                        : "text-black hover:font-extrabold"
                     }`
                   }
                   aria-current="page"
@@ -499,7 +499,7 @@ function Header() {
                     `block py-2 px-3 rounded md:p-0 ${
                       isActive
                         ? "text-2xl font-extrabold text-white"
-                        : "text-white hover:font-extrabold"
+                        : "text-black hover:font-extrabold"
                     }`
                   }
                 >
@@ -508,12 +508,12 @@ function Header() {
               </li>
               <li>
                 <NavLink
-                  to={"/services"}
+                  to={"/main"}
                   className={({ isActive }) =>
                     `block py-2 px-3 rounded md:p-0 ${
                       isActive
                         ? "text-2xl font-extrabold text-white"
-                        : "text-white hover:font-extrabold"
+                        : "text-black hover:font-extrabold"
                     }`
                   }
                 >
